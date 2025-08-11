@@ -1,0 +1,1211 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MarkdownPro - リアルタイムマークダウンエディタ</title>
+    
+    <!-- Marked.js for Markdown parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    
+    <!-- Prism.js for syntax highlighting -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-css.min.js"></script>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #1e1e1e;
+            --bg-secondary: #252526;
+            --bg-tertiary: #2d2d30;
+            --text-primary: #cccccc;
+            --text-secondary: #858585;
+            --accent: #007acc;
+            --accent-hover: #1a8ad4;
+            --border: #3e3e42;
+            --success: #4ec9b0;
+            --warning: #ce9178;
+            --error: #f48771;
+            --editor-bg: #1e1e1e;
+            --preview-bg: #ffffff;
+            --preview-text: #24292e;
+        }
+
+        body.light-theme {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f3f3f3;
+            --bg-tertiary: #e8e8e8;
+            --text-primary: #333333;
+            --text-secondary: #666666;
+            --border: #d0d0d0;
+            --editor-bg: #ffffff;
+            --preview-bg: #ffffff;
+            --preview-text: #24292e;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Header */
+        .header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 50px;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .logo {
+            font-size: 18px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--accent);
+        }
+
+        .logo i {
+            font-size: 20px;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 6px 12px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text-primary);
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn:hover {
+            background: var(--accent);
+            border-color: var(--accent);
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            border-color: var(--accent);
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-hover);
+            border-color: var(--accent-hover);
+        }
+
+        /* Toolbar */
+        .toolbar {
+            background: var(--bg-tertiary);
+            border-bottom: 1px solid var(--border);
+            padding: 8px 20px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            height: 40px;
+        }
+
+        .toolbar-group {
+            display: flex;
+            gap: 5px;
+            padding-right: 15px;
+            border-right: 1px solid var(--border);
+        }
+
+        .toolbar-group:last-child {
+            border-right: none;
+        }
+
+        .toolbar-btn {
+            width: 30px;
+            height: 30px;
+            background: transparent;
+            border: 1px solid transparent;
+            border-radius: 4px;
+            color: var(--text-primary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .toolbar-btn:hover {
+            background: var(--bg-secondary);
+            border-color: var(--border);
+        }
+
+        .toolbar-btn.active {
+            background: var(--accent);
+            color: white;
+        }
+
+        /* Main Container */
+        .container {
+            display: flex;
+            height: calc(100vh - 90px - 30px); /* header + toolbar + statusbar */
+        }
+
+        /* Editor Panel */
+        .editor-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--border);
+            background: var(--editor-bg);
+        }
+
+        .panel-header {
+            background: var(--bg-tertiary);
+            padding: 8px 15px;
+            font-size: 12px;
+            font-weight: 500;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            border-bottom: 1px solid var(--border);
+        }
+
+        #editor {
+            flex: 1;
+            padding: 20px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            background: var(--editor-bg);
+            color: var(--text-primary);
+            border: none;
+            outline: none;
+            resize: none;
+            overflow-y: auto;
+        }
+
+        /* Preview Panel */
+        .preview-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--preview-bg);
+        }
+
+        #preview {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: var(--preview-bg);
+            color: var(--preview-text);
+        }
+
+        /* Markdown Preview Styles */
+        #preview {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+            font-size: 16px;
+            line-height: 1.6;
+        }
+
+        #preview h1, #preview h2, #preview h3, #preview h4, #preview h5, #preview h6 {
+            margin-top: 24px;
+            margin-bottom: 16px;
+            font-weight: 600;
+            line-height: 1.25;
+        }
+
+        #preview h1 {
+            font-size: 2em;
+            border-bottom: 1px solid #eaecef;
+            padding-bottom: 0.3em;
+        }
+
+        #preview h2 {
+            font-size: 1.5em;
+            border-bottom: 1px solid #eaecef;
+            padding-bottom: 0.3em;
+        }
+
+        #preview h3 {
+            font-size: 1.25em;
+        }
+
+        #preview p {
+            margin-bottom: 16px;
+        }
+
+        #preview ul, #preview ol {
+            padding-left: 2em;
+            margin-bottom: 16px;
+        }
+
+        #preview li {
+            margin-bottom: 4px;
+        }
+
+        #preview code {
+            padding: 0.2em 0.4em;
+            margin: 0;
+            font-size: 85%;
+            background-color: rgba(27, 31, 35, 0.05);
+            border-radius: 3px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        #preview pre {
+            padding: 16px;
+            overflow: auto;
+            font-size: 85%;
+            line-height: 1.45;
+            background-color: #f6f8fa;
+            border-radius: 6px;
+            margin-bottom: 16px;
+        }
+
+        #preview pre code {
+            background: transparent;
+            padding: 0;
+        }
+
+        #preview blockquote {
+            padding: 0 1em;
+            color: #6a737d;
+            border-left: 0.25em solid #dfe2e5;
+            margin-bottom: 16px;
+        }
+
+        #preview table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-bottom: 16px;
+        }
+
+        #preview table th,
+        #preview table td {
+            padding: 6px 13px;
+            border: 1px solid #dfe2e5;
+        }
+
+        #preview table tr:nth-child(2n) {
+            background-color: #f6f8fa;
+        }
+
+        #preview img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        #preview a {
+            color: #0366d6;
+            text-decoration: none;
+        }
+
+        #preview a:hover {
+            text-decoration: underline;
+        }
+
+        /* Status Bar */
+        .status-bar {
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border);
+            padding: 5px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+            color: var(--text-secondary);
+            height: 30px;
+        }
+
+        .status-left {
+            display: flex;
+            gap: 20px;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        /* Templates Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            padding: 30px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            margin-bottom: 20px;
+        }
+
+        .modal-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .template-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .template-card {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .template-card:hover {
+            background: var(--accent);
+            border-color: var(--accent);
+        }
+
+        .template-icon {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .template-name {
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+            }
+
+            .editor-panel {
+                border-right: none;
+                border-bottom: 1px solid var(--border);
+            }
+
+            .toolbar-group {
+                flex-wrap: wrap;
+            }
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--bg-tertiary);
+            border-radius: 5px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--border);
+        }
+
+        /* Dark theme for preview */
+        body.dark-theme #preview {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+        }
+
+        body.dark-theme #preview code {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        body.dark-theme #preview pre {
+            background-color: var(--bg-tertiary);
+        }
+
+        body.dark-theme #preview blockquote {
+            color: var(--text-secondary);
+            border-left-color: var(--border);
+        }
+
+        body.dark-theme #preview table th,
+        body.dark-theme #preview table td {
+            border-color: var(--border);
+        }
+
+        body.dark-theme #preview table tr:nth-child(2n) {
+            background-color: var(--bg-tertiary);
+        }
+
+        body.dark-theme #preview a {
+            color: var(--accent);
+        }
+
+        body.dark-theme #preview h1,
+        body.dark-theme #preview h2 {
+            border-bottom-color: var(--border);
+        }
+    </style>
+</head>
+<body class="dark-theme">
+    <!-- Header -->
+    <div class="header">
+        <div class="header-left">
+            <div class="logo">
+                <i class="fas fa-markdown"></i>
+                MarkdownPro
+            </div>
+        </div>
+        <div class="header-actions">
+            <button class="btn" onclick="newDocument()">
+                <i class="fas fa-file"></i> 新規
+            </button>
+            <button class="btn" onclick="openFile()">
+                <i class="fas fa-folder-open"></i> 開く
+            </button>
+            <button class="btn" onclick="saveFile()">
+                <i class="fas fa-save"></i> 保存
+            </button>
+            <button class="btn" onclick="exportHTML()">
+                <i class="fas fa-file-export"></i> HTML出力
+            </button>
+            <button class="btn" onclick="showTemplates()">
+                <i class="fas fa-shapes"></i> テンプレート
+            </button>
+            <button class="btn" onclick="toggleTheme()">
+                <i class="fas fa-moon" id="themeIcon"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+        <div class="toolbar-group">
+            <button class="toolbar-btn" onclick="insertMarkdown('bold')" title="太字 (Ctrl+B)">
+                <i class="fas fa-bold"></i>
+            </button>
+            <button class="toolbar-btn" onclick="insertMarkdown('italic')" title="斜体 (Ctrl+I)">
+                <i class="fas fa-italic"></i>
+            </button>
+            <button class="toolbar-btn" onclick="insertMarkdown('strikethrough')" title="取り消し線">
+                <i class="fas fa-strikethrough"></i>
+            </button>
+        </div>
+        <div class="toolbar-group">
+            <button class="toolbar-btn" onclick="insertMarkdown('h1')" title="見出し1">
+                H1
+            </button>
+            <button class="toolbar-btn" onclick="insertMarkdown('h2')" title="見出し2">
+                H2
+            </button>
+            <button class="toolbar-btn" onclick="insertMarkdown('h3')" title="見出し3">
+                H3
+            </button>
+        </div>
+        <div class="toolbar-group">
+            <button class="toolbar-btn" onclick="insertMarkdown('ul')" title="箇条書き">
+                <i class="fas fa-list-ul"></i>
+            </button>
+            <button class="toolbar-btn" onclick="insertMarkdown('ol')" title="番号付きリスト">
+                <i class="fas fa-list-ol"></i>
+            </button>
+            <button class="toolbar-btn" onclick="insertMarkdown('checklist')" title="チェックリスト">
+                <i class="fas fa-tasks"></i>
+            </button>
+        </div>
+        <div class="toolbar-group">
+            <button class="toolbar-btn" onclick="insertMarkdown('link')" title="リンク (Ctrl+K)">
+                <i class="fas fa-link"></i>
+            </button>
+            <button class="toolbar-btn" onclick="insertMarkdown('image')" title="画像">
+                <i class="fas fa-image"></i>
+            </button>
+            <button class="toolbar-btn" onclick="insertMarkdown('code')" title="インラインコード">
+                <i class="fas fa-code"></i>
+            </button>
+            <button class="toolbar-btn" onclick="insertMarkdown('codeblock')" title="コードブロック">
+                <i class="fas fa-file-code"></i>
+            </button>
+        </div>
+        <div class="toolbar-group">
+            <button class="toolbar-btn" onclick="insertMarkdown('quote')" title="引用">
+                <i class="fas fa-quote-left"></i>
+            </button>
+            <button class="toolbar-btn" onclick="insertMarkdown('table')" title="テーブル">
+                <i class="fas fa-table"></i>
+            </button>
+            <button class="toolbar-btn" onclick="insertMarkdown('hr')" title="水平線">
+                <i class="fas fa-minus"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Container -->
+    <div class="container">
+        <!-- Editor Panel -->
+        <div class="editor-panel">
+            <div class="panel-header">
+                <i class="fas fa-edit"></i> エディタ
+            </div>
+            <textarea id="editor" placeholder="ここにマークダウンを入力...
+
+# 見出し1
+## 見出し2
+### 見出し3
+
+**太字** *斜体* ~~取り消し線~~
+
+- リスト項目1
+- リスト項目2
+  - ネストされた項目
+
+1. 番号付きリスト
+2. 番号付きリスト
+
+> 引用文
+
+`インラインコード`
+
+```javascript
+// コードブロック
+const hello = 'Hello, World!';
+```
+
+[リンクテキスト](https://example.com)
+![画像の代替テキスト](image.jpg)
+
+| 列1 | 列2 | 列3 |
+|-----|-----|-----|
+| データ1 | データ2 | データ3 |
+
+---"></textarea>
+        </div>
+
+        <!-- Preview Panel -->
+        <div class="preview-panel">
+            <div class="panel-header">
+                <i class="fas fa-eye"></i> プレビュー
+            </div>
+            <div id="preview"></div>
+        </div>
+    </div>
+
+    <!-- Status Bar -->
+    <div class="status-bar">
+        <div class="status-left">
+            <div class="status-item">
+                <i class="fas fa-file-alt"></i>
+                <span id="fileName">untitled.md</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-font"></i>
+                <span id="charCount">0</span> 文字
+            </div>
+            <div class="status-item">
+                <i class="fas fa-align-left"></i>
+                <span id="lineCount">1</span> 行
+            </div>
+            <div class="status-item">
+                <i class="fas fa-book"></i>
+                <span id="wordCount">0</span> 単語
+            </div>
+        </div>
+        <div class="status-right">
+            <div class="status-item">
+                <i class="fas fa-save"></i>
+                <span id="saveStatus">保存済み</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Templates Modal -->
+    <div class="modal" id="templatesModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">テンプレートを選択</h2>
+            </div>
+            <div class="template-grid">
+                <div class="template-card" onclick="loadTemplate('readme')">
+                    <div class="template-icon">📄</div>
+                    <div class="template-name">README</div>
+                </div>
+                <div class="template-card" onclick="loadTemplate('blog')">
+                    <div class="template-icon">📝</div>
+                    <div class="template-name">ブログ記事</div>
+                </div>
+                <div class="template-card" onclick="loadTemplate('documentation')">
+                    <div class="template-icon">📚</div>
+                    <div class="template-name">ドキュメント</div>
+                </div>
+                <div class="template-card" onclick="loadTemplate('meeting')">
+                    <div class="template-icon">📋</div>
+                    <div class="template-name">議事録</div>
+                </div>
+                <div class="template-card" onclick="loadTemplate('project')">
+                    <div class="template-icon">🚀</div>
+                    <div class="template-name">プロジェクト計画</div>
+                </div>
+                <div class="template-card" onclick="loadTemplate('tutorial')">
+                    <div class="template-icon">🎓</div>
+                    <div class="template-name">チュートリアル</div>
+                </div>
+            </div>
+            <br>
+            <button class="btn" onclick="closeTemplates()">閉じる</button>
+        </div>
+    </div>
+
+    <!-- Hidden file input -->
+    <input type="file" id="fileInput" accept=".md,.txt" style="display: none;">
+
+    <script>
+        // Initialize
+        let currentFileName = 'untitled.md';
+        let isDarkTheme = true;
+        let autoSaveTimer = null;
+
+        // Editor element
+        const editor = document.getElementById('editor');
+        const preview = document.getElementById('preview');
+
+        // Initialize marked options
+        marked.setOptions({
+            breaks: true,
+            gfm: true,
+            highlight: function(code, lang) {
+                if (Prism.languages[lang]) {
+                    return Prism.highlight(code, Prism.languages[lang], lang);
+                }
+                return code;
+            }
+        });
+
+        // Update preview
+        function updatePreview() {
+            const markdownText = editor.value;
+            const html = marked.parse(markdownText);
+            preview.innerHTML = html;
+            
+            // Re-highlight code blocks
+            Prism.highlightAllUnder(preview);
+            
+            // Update status
+            updateStatus();
+            
+            // Auto save
+            autoSave();
+        }
+
+        // Update status bar
+        function updateStatus() {
+            const text = editor.value;
+            const lines = text.split('\n').length;
+            const chars = text.length;
+            const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+            
+            document.getElementById('lineCount').textContent = lines;
+            document.getElementById('charCount').textContent = chars;
+            document.getElementById('wordCount').textContent = words;
+        }
+
+        // Auto save to localStorage
+        function autoSave() {
+            clearTimeout(autoSaveTimer);
+            autoSaveTimer = setTimeout(() => {
+                localStorage.setItem('markdownContent', editor.value);
+                localStorage.setItem('markdownFileName', currentFileName);
+                document.getElementById('saveStatus').textContent = '自動保存済み';
+                setTimeout(() => {
+                    document.getElementById('saveStatus').textContent = '保存済み';
+                }, 1000);
+            }, 1000);
+        }
+
+        // Load from localStorage
+        function loadFromStorage() {
+            const savedContent = localStorage.getItem('markdownContent');
+            const savedFileName = localStorage.getItem('markdownFileName');
+            
+            if (savedContent) {
+                editor.value = savedContent;
+                updatePreview();
+            }
+            
+            if (savedFileName) {
+                currentFileName = savedFileName;
+                document.getElementById('fileName').textContent = currentFileName;
+            }
+        }
+
+        // Insert markdown
+        function insertMarkdown(type) {
+            const start = editor.selectionStart;
+            const end = editor.selectionEnd;
+            const selectedText = editor.value.substring(start, end);
+            let insertText = '';
+            
+            switch(type) {
+                case 'bold':
+                    insertText = `**${selectedText || '太字テキスト'}**`;
+                    break;
+                case 'italic':
+                    insertText = `*${selectedText || '斜体テキスト'}*`;
+                    break;
+                case 'strikethrough':
+                    insertText = `~~${selectedText || '取り消し線テキスト'}~~`;
+                    break;
+                case 'h1':
+                    insertText = `# ${selectedText || '見出し1'}\n`;
+                    break;
+                case 'h2':
+                    insertText = `## ${selectedText || '見出し2'}\n`;
+                    break;
+                case 'h3':
+                    insertText = `### ${selectedText || '見出し3'}\n`;
+                    break;
+                case 'ul':
+                    insertText = `- ${selectedText || 'リスト項目'}\n`;
+                    break;
+                case 'ol':
+                    insertText = `1. ${selectedText || '番号付きリスト項目'}\n`;
+                    break;
+                case 'checklist':
+                    insertText = `- [ ] ${selectedText || 'タスク'}\n`;
+                    break;
+                case 'link':
+                    insertText = `[${selectedText || 'リンクテキスト'}](URL)`;
+                    break;
+                case 'image':
+                    insertText = `![${selectedText || '代替テキスト'}](画像URL)`;
+                    break;
+                case 'code':
+                    insertText = `\`${selectedText || 'コード'}\``;
+                    break;
+                case 'codeblock':
+                    insertText = `\`\`\`javascript\n${selectedText || '// コード'}\n\`\`\`\n`;
+                    break;
+                case 'quote':
+                    insertText = `> ${selectedText || '引用文'}\n`;
+                    break;
+                case 'table':
+                    insertText = `| 列1 | 列2 | 列3 |\n|-----|-----|-----|\n| データ1 | データ2 | データ3 |\n`;
+                    break;
+                case 'hr':
+                    insertText = `\n---\n`;
+                    break;
+            }
+            
+            editor.value = editor.value.substring(0, start) + insertText + editor.value.substring(end);
+            editor.selectionStart = start;
+            editor.selectionEnd = start + insertText.length;
+            editor.focus();
+            updatePreview();
+        }
+
+        // New document
+        function newDocument() {
+            if (confirm('現在の内容を破棄して新規ドキュメントを作成しますか？')) {
+                editor.value = '';
+                currentFileName = 'untitled.md';
+                document.getElementById('fileName').textContent = currentFileName;
+                updatePreview();
+            }
+        }
+
+        // Open file
+        function openFile() {
+            document.getElementById('fileInput').click();
+        }
+
+        // Handle file selection
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    editor.value = e.target.result;
+                    currentFileName = file.name;
+                    document.getElementById('fileName').textContent = currentFileName;
+                    updatePreview();
+                };
+                reader.readAsText(file);
+            }
+        });
+
+        // Save file
+        function saveFile() {
+            const blob = new Blob([editor.value], { type: 'text/markdown' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = currentFileName;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            document.getElementById('saveStatus').textContent = '保存しました';
+            setTimeout(() => {
+                document.getElementById('saveStatus').textContent = '保存済み';
+            }, 2000);
+        }
+
+        // Export HTML
+        function exportHTML() {
+            const html = `<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${currentFileName.replace('.md', '')}</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #24292e;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        pre {
+            background: #f6f8fa;
+            padding: 16px;
+            border-radius: 6px;
+            overflow-x: auto;
+        }
+        code {
+            background: rgba(27,31,35,0.05);
+            padding: 0.2em 0.4em;
+            border-radius: 3px;
+        }
+        blockquote {
+            border-left: 4px solid #dfe2e5;
+            padding-left: 16px;
+            color: #6a737d;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        table th, table td {
+            border: 1px solid #dfe2e5;
+            padding: 6px 13px;
+        }
+        table tr:nth-child(2n) {
+            background-color: #f6f8fa;
+        }
+    </style>
+</head>
+<body>
+${preview.innerHTML}
+</body>
+</html>`;
+            
+            const blob = new Blob([html], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = currentFileName.replace('.md', '.html');
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // Toggle theme
+        function toggleTheme() {
+            isDarkTheme = !isDarkTheme;
+            document.body.classList.toggle('dark-theme');
+            document.body.classList.toggle('light-theme');
+            
+            const icon = document.getElementById('themeIcon');
+            icon.className = isDarkTheme ? 'fas fa-sun' : 'fas fa-moon';
+        }
+
+        // Show templates
+        function showTemplates() {
+            document.getElementById('templatesModal').classList.add('show');
+        }
+
+        // Close templates
+        function closeTemplates() {
+            document.getElementById('templatesModal').classList.remove('show');
+        }
+
+        // Load template
+        function loadTemplate(type) {
+            const templates = {
+                readme: `# プロジェクト名
+
+## 概要
+プロジェクトの簡単な説明をここに記載します。
+
+## 特徴
+- 特徴1
+- 特徴2
+- 特徴3
+
+## インストール
+\`\`\`bash
+npm install project-name
+\`\`\`
+
+## 使い方
+\`\`\`javascript
+const project = require('project-name');
+project.doSomething();
+\`\`\`
+
+## 貢献
+プルリクエストは歓迎します。
+
+## ライセンス
+MIT`,
+
+                blog: `# ブログタイトル
+
+*公開日: ${new Date().toLocaleDateString('ja-JP')}*
+
+## はじめに
+ここに導入文を書きます。
+
+## 本文
+### セクション1
+内容をここに記載...
+
+### セクション2
+内容をここに記載...
+
+## まとめ
+結論をここに記載。
+
+---
+*著者: あなたの名前*`,
+
+                documentation: `# ドキュメントタイトル
+
+## 目次
+1. [概要](#概要)
+2. [セットアップ](#セットアップ)
+3. [使用方法](#使用方法)
+4. [API リファレンス](#api-リファレンス)
+
+## 概要
+システムの概要説明
+
+## セットアップ
+### 必要条件
+- 条件1
+- 条件2
+
+### インストール手順
+1. 手順1
+2. 手順2
+
+## 使用方法
+基本的な使い方の説明
+
+## API リファレンス
+### 関数名
+説明とパラメータ`,
+
+                meeting: `# 議事録
+
+**日時:** ${new Date().toLocaleString('ja-JP')}  
+**場所:** オンライン/会議室  
+**参加者:** 
+
+## アジェンダ
+1. 議題1
+2. 議題2
+3. 議題3
+
+## 議事内容
+### 議題1について
+- 討議内容
+- 決定事項
+
+### 議題2について
+- 討議内容
+- 決定事項
+
+## アクションアイテム
+- [ ] タスク1 (担当: )
+- [ ] タスク2 (担当: )
+
+## 次回予定
+日時: `,
+
+                project: `# プロジェクト計画書
+
+## プロジェクト概要
+### 目的
+プロジェクトの目的
+
+### スコープ
+- 含まれるもの
+- 含まれないもの
+
+## スケジュール
+| フェーズ | 開始日 | 終了日 | 成果物 |
+|---------|--------|--------|--------|
+| 計画 | | | 計画書 |
+| 開発 | | | システム |
+| テスト | | | テスト結果 |
+
+## リソース
+### チームメンバー
+- メンバー1: 役割
+- メンバー2: 役割
+
+## リスク管理
+| リスク | 影響度 | 発生確率 | 対策 |
+|--------|--------|----------|------|
+| | 高/中/低 | 高/中/低 | |`,
+
+                tutorial: `# チュートリアル: タイトル
+
+## 前提条件
+このチュートリアルを始める前に必要なもの：
+- 前提1
+- 前提2
+
+## ステップ1: セットアップ
+まず最初に...
+
+\`\`\`bash
+コマンド例
+\`\`\`
+
+## ステップ2: 基本的な使い方
+次に...
+
+> **ヒント:** ここにヒントを記載
+
+## ステップ3: 応用
+さらに高度な使い方...
+
+## トラブルシューティング
+**問題:** エラーが発生する場合
+**解決策:** この方法を試してください
+
+## まとめ
+このチュートリアルで学んだこと：
+- ポイント1
+- ポイント2
+
+## 次のステップ
+- さらに学ぶためのリソース`
+            };
+            
+            if (templates[type]) {
+                editor.value = templates[type];
+                updatePreview();
+                closeTemplates();
+            }
+        }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey || e.metaKey) {
+                switch(e.key) {
+                    case 's':
+                        e.preventDefault();
+                        saveFile();
+                        break;
+                    case 'o':
+                        e.preventDefault();
+                        openFile();
+                        break;
+                    case 'n':
+                        e.preventDefault();
+                        newDocument();
+                        break;
+                    case 'b':
+                        e.preventDefault();
+                        insertMarkdown('bold');
+                        break;
+                    case 'i':
+                        e.preventDefault();
+                        insertMarkdown('italic');
+                        break;
+                    case 'k':
+                        e.preventDefault();
+                        insertMarkdown('link');
+                        break;
+                }
+            }
+        });
+
+        // Event listeners
+        editor.addEventListener('input', updatePreview);
+        editor.addEventListener('scroll', function() {
+            const scrollPercentage = editor.scrollTop / (editor.scrollHeight - editor.clientHeight);
+            preview.scrollTop = scrollPercentage * (preview.scrollHeight - preview.clientHeight);
+        });
+
+        // Initialize on load
+        window.addEventListener('DOMContentLoaded', function() {
+            loadFromStorage();
+            updatePreview();
+        });
+
+        // Close modal on outside click
+        window.addEventListener('click', function(e) {
+            if (e.target.classList.contains('modal')) {
+                e.target.classList.remove('show');
+            }
+        });
+    </script>
+</body>
+</html>
